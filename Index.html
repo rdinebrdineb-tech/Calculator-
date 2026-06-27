@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>حاسبة</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0d12;
+      --card:    #1c1c28;
+      --btn-num: #1f1f2e;
+      --btn-op:  #252538;
+      --accent:  #7c6af7;
+      --accent2: #a78bfa;
+      --eq:      #6c63ff;
+      --text:    #e8e8f0;
+      --muted:   #6b6b80;
+      --danger:  #ff6b8a;
+      --glow:    rgba(124,106,247,0.35);
+      --op-color:#7eb8f7;
+      --radius:  20px;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+    }
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 360px; height: 360px;
+      background: radial-gradient(circle, rgba(124,106,247,0.18), transparent 70%);
+      top: -80px; left: -80px;
+    }
+    body::after {
+      width: 280px; height: 280px;
+      background: radial-gradient(circle, rgba(255,107,138,0.12), transparent 70%);
+      bottom: -60px; right: -60px;
+    }
+
+    .calc-wrapper {
+      position: relative;
+      z-index: 1;
+      width: 340px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 6px 14px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #ff6b8a; }
+    .dot-y { background: #f0c05a; }
+    .dot-g { background: #57d9a3; }
+
+    /* display */
+    .display {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px 18px 14px;
+      margin-bottom: 14px;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: 0 4px 30px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+      overflow: hidden;
+    }
+
+    /* scrollable expression tape */
+    .tape-wrap {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: 100px;
+      scrollbar-width: none;
+    }
+    .tape-wrap::-webkit-scrollbar { display: none; }
+
+    .tape {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.5;
+      text-align: right;
+      word-break: break-all;
+    }
+    /* number tokens */
+    .tape .tok-num { color: var(--text); }
+    /* operator tokens */
+    .tape .tok-op  { color: var(--op-color); }
+    /* current input (last number being typed) */
+    .tape .tok-cur { color: var(--text); }
+
+    /* running total */
+    .running {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 38px;
+      font-weight: 700;
+      color: var(--muted);
+      text-align: right;
+      letter-spacing: -0.5px;
+      margin-top: 6px;
+      transition: color 0.2s;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .running.final { color: var(--text); font-size: 46px; }
+    .running.pop { animation: popAnim 0.18s ease; }
+    @keyframes popAnim {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.05); color: var(--accent2); }
+      100% { transform: scale(1); }
+    }
+
+    /* grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      border: none;
+      cursor: pointer;
+      border-radius: 16px;
+      height: 72px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 500;
+      transition: transform 0.1s, box-shadow 0.15s, background 0.15s;
+      position: relative;
+      overflow: hidden;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: rgba(255,255,255,0);
+      transition: background 0.1s;
+    }
+    button:active::after { background: rgba(255,255,255,0.07); }
+    button:active { transform: scale(0.93); }
+
+    .btn-num {
+      background: var(--btn-num);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.04);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .btn-num:hover { background: #25253a; }
+
+    .span2 { grid-column: span 2; border-radius: 20px; }
+
+    .btn-op {
+      background: var(--btn-op);
+      color: var(--op-color);
+      border: 1px solid rgba(126,184,247,0.15);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    }
+    .btn-op:hover { background: #2d2d46; }
+
+    .btn-fn {
+      background: rgba(124,106,247,0.12);
+      color: var(--accent2);
+      border: 1px solid rgba(124,106,247,0.18);
+      font-size: 18px;
+    }
+    .btn-fn:hover { background: rgba(124,106,247,0.22); }
+
+    .btn-ac {
+      background: rgba(255,107,138,0.1);
+      color: var(--danger);
+      border: 1px solid rgba(255,107,138,0.18);
+    }
+    .btn-ac:hover { background: rgba(255,107,138,0.2); }
+
+    .btn-eq {
+      background: linear-gradient(135deg, var(--eq), var(--accent));
+      color: #fff;
+      font-size: 26px;
+      box-shadow: 0 6px 24px rgba(108,99,255,0.45);
+      border: none;
+    }
+    .btn-eq:hover { filter: brightness(1.08); box-shadow: 0 8px 30px rgba(108,99,255,0.6); }
+
+    .btn-back {
+      background: rgba(255,107,138,0.1);
+      color: var(--danger);
+      border: 1px solid rgba(255,107,138,0.18);
+      font-size: 22px;
+    }
+    .btn-back:hover { background: rgba(255,107,138,0.2); }
+
+    @media (max-width: 380px) {
+      .calc-wrapper { width: 300px; }
+      button { height: 62px; font-size: 18px; }
+      .running { font-size: 32px; }
+      .tape { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+<div class="calc-wrapper">
+  <div class="topbar">
+    <div class="dot dot-r"></div>
+    <div class="dot dot-y"></div>
+    <div class="dot dot-g"></div>
+  </div>
+
+  <div class="display">
+    <div class="tape-wrap">
+      <div class="tape" id="tape"></div>
+    </div>
+    <div class="running" id="running">0</div>
+  </div>
+
+  <div class="grid">
+    <button class="btn-ac btn-fn" onclick="clearAll()">AC</button>
+    <button class="btn-fn"        onclick="toggleSign()">+/−</button>
+    <button class="btn-fn"        onclick="percent()">%</button>
+    <button class="btn-op"        onclick="op('÷')">÷</button>
+
+    <button class="btn-num" onclick="num('7')">7</button>
+    <button class="btn-num" onclick="num('8')">8</button>
+    <button class="btn-num" onclick="num('9')">9</button>
+    <button class="btn-op"  onclick="op('×')">×</button>
+
+    <button class="btn-num" onclick="num('4')">4</button>
+    <button class="btn-num" onclick="num('5')">5</button>
+    <button class="btn-num" onclick="num('6')">6</button>
+    <button class="btn-op"  onclick="op('−')">−</button>
+
+    <button class="btn-num" onclick="num('1')">1</button>
+    <button class="btn-num" onclick="num('2')">2</button>
+    <button class="btn-num" onclick="num('3')">3</button>
+    <button class="btn-op"  onclick="op('+')">+</button>
+
+    <button class="btn-num" onclick="num('0')">0</button>
+    <button class="btn-num" onclick="dot()">.</button>
+    <button class="btn-back" onclick="backspace()">⌫</button>
+    <button class="btn-eq"   onclick="equals()">=</button>
+  </div>
+</div>
+
+<script>
+  // --- state ---
+  // tokens: array of {type:'num'|'op', value:string}
+  let tokens = [];          // committed tokens
+  let current = '';         // number being typed right now
+  let pendingOp = null;     // last operator waiting for next number
+  let justEvaled = false;
+  let evaluated = false;    // after = pressed
+
+  const tapeEl    = document.getElementById('tape');
+  const runningEl = document.getElementById('running');
+
+  // --- render tape ---
+  function renderTape() {
+    let html = '';
+    for (const t of tokens) {
+      if (t.type === 'num') html += `<span class="tok-num">${t.value}</span>`;
+      else                  html += `<span class="tok-op">${t.value}</span>`;
+    }
+    // append current input being typed
+    if (current !== '') {
+      html += `<span class="tok-cur">${current}</span>`;
+    }
+    tapeEl.innerHTML = html;
+    // auto-scroll tape to bottom
+    const wrap = tapeEl.parentElement;
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  // --- compute running total from tokens + current ---
+  function calcRunning() {
+    // Build a flat expression string then eval safely
+    let allTokens = [...tokens];
+    if (current !== '' && current !== '-') {
+      allTokens.push({ type: 'num', value: current });
+    }
+    if (allTokens.length === 0) return 0;
+
+    let result = parseFloat(allTokens[0].value) || 0;
+    let i = 1;
+    while (i < allTokens.length - 1) {
+      const opTok  = allTokens[i];
+      const numTok = allTokens[i + 1];
+      if (opTok.type === 'op' && numTok.type === 'num') {
+        result = compute(result, parseFloat(numTok.value), opTok.value);
+      }
+      i += 2;
+    }
+    return result;
+  }
+
+  function compute(a, b, o) {
+    if (o === '+') return a + b;
+    if (o === '−') return a - b;
+    if (o === '×') return a * b;
+    if (o === '÷') return b === 0 ? NaN : a / b;
+    return b;
+  }
+
+  function fmt(n) {
+    if (isNaN(n)) return 'خطأ';
+    let s = parseFloat(n.toFixed(9)).toString();
+    return s;
+  }
+
+  function updateRunning(isFinal) {
+    const val = calcRunning();
+    const s   = fmt(val);
+    runningEl.textContent = s;
+    runningEl.className   = 'running' + (isFinal ? ' final' : '');
+    // pop
+    runningEl.classList.remove('pop');
+    void runningEl.offsetWidth;
+    runningEl.classList.add('pop');
+  }
+
+  // --- input handlers ---
+  function num(d) {
+    if (evaluated) {
+      // start fresh after =
+      tokens = []; current = ''; pendingOp = null; evaluated = false;
+    }
+    if (justEvaled && tokens.length > 0 && tokens[tokens.length-1].type === 'op') {
+      // continuing after operator
+      justEvaled = false;
+    }
+    if (current.length < 15) current += d;
+    renderTape();
+    updateRunning(false);
+  }
+
+  function dot() {
+    if (evaluated) { tokens=[]; current=''; evaluated=false; }
+    if (!current.includes('.')) current += (current === '' ? '0.' : '.');
+    renderTape();
+    updateRunning(false);
+  }
+
+  function op(o) {
+    if (current === '' && tokens.length === 0) return;
+
+    if (current !== '') {
+      tokens.push({ type: 'num', value: current });
+      current = '';
+    } else if (tokens.length > 0 && tokens[tokens.length-1].type === 'op') {
+      // replace last operator
+      tokens[tokens.length-1].value = o;
+      renderTape();
+      return;
+    }
+    tokens.push({ type: 'op', value: o });
+    evaluated = false;
+    renderTape();
+    updateRunning(false);
+  }
+
+  function equals() {
+    if (current !== '') {
+      tokens.push({ type: 'num', value: current });
+      current = '';
+    }
+    // remove trailing op if any
+    if (tokens.length > 0 && tokens[tokens.length-1].type === 'op')
+      tokens.pop();
+
+    updateRunning(true);
+    evaluated = true;
+  }
+
+  function clearAll() {
+    tokens = []; current = ''; pendingOp = null; justEvaled = false; evaluated = false;
+    tapeEl.innerHTML = '';
+    runningEl.textContent = '0';
+    runningEl.className = 'running';
+  }
+
+  function toggleSign() {
+    if (current !== '') {
+      current = current.startsWith('-') ? current.slice(1) : '-' + current;
+    } else {
+      // flip last number token
+      const last = [...tokens].reverse().find(t => t.type === 'num');
+      if (last) last.value = last.value.startsWith('-') ? last.value.slice(1) : '-' + last.value;
+    }
+    renderTape();
+    updateRunning(evaluated);
+  }
+
+  function backspace() {
+    if (evaluated) return;
+    if (current.length > 0) {
+      current = current.slice(0, -1);
+    } else if (tokens.length > 0) {
+      const last = tokens[tokens.length - 1];
+      if (last.type === 'op') {
+        tokens.pop();
+      } else {
+        current = last.value.slice(0, -1);
+        tokens.pop();
+      }
+    }
+    renderTape();
+    updateRunning(false);
+  }
+
+  function percent() {
+    if (current !== '') {
+      current = fmt(parseFloat(current) / 100);
+    } else {
+      const last = [...tokens].reverse().find(t => t.type === 'num');
+      if (last) last.value = fmt(parseFloat(last.value) / 100);
+    }
+    renderTape();
+    updateRunning(evaluated);
+  }
+
+  // keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key >= '0' && e.key <= '9') num(e.key);
+    else if (e.key === '.')  dot();
+    else if (e.key === '+')  op('+');
+    else if (e.key === '-')  op('−');
+    else if (e.key === '*')  op('×');
+    else if (e.key === '/') { e.preventDefault(); op('÷'); }
+    else if (e.key === 'Enter' || e.key === '=') equals();
+    else if (e.key === 'Escape') clearAll();
+    else if (e.key === 'Backspace') {
+      if (current.length > 0) {
+        current = current.slice(0, -1);
+      } else if (tokens.length > 0) {
+        const last = tokens[tokens.length - 1];
+        if (last.type === 'op') tokens.pop();
+        else { current = last.value.slice(0,-1); tokens.pop(); }
+      }
+      renderTape();
+      updateRunning(evaluated);
+    }
+  });
+</script>
+</body>
+</html>
